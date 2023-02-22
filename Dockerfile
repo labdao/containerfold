@@ -52,9 +52,9 @@ RUN chmod +x update_linux.sh
 # install alignment tools
 RUN conda install -c conda-forge -c bioconda kalign2=2.04 hhsuite=3.3.0 mmseqs2=14.7e284 -y
 # install ColabFold and Jaxlib
-RUN colabfold-conda/bin/python3.7 -m pip install -q --no-warn-conflicts "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
-RUN colabfold-conda/bin/python3.7 -m pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.25+cuda11.cudnn82-cp38-cp38-manylinux2014_x86_64.whl
-RUN colabfold-conda/bin/python3.7 -m pip install jax==0.3.25 biopython==1.79
+RUN /src/conda/envs/colabfold-conda/bin/python3.7 -m pip install -q --no-warn-conflicts "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
+RUN /src/conda/envs/colabfold-conda/bin/python3.7 -m pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.25+cuda11.cudnn82-cp38-cp38-manylinux2014_x86_64.whl
+RUN /src/conda/envs/colabfold-conda/bin/python3.7 -m pip install jax==0.3.25 biopython==1.79
 
 # hack to share the parameter files in a workstation.
 RUN (cd /src/conda/envs/colabfold-conda/lib/python3.7/site-packages/colabfold; sed -i -e "s#props_path = \"stereo_chemical_props.txt\"#props_path = \"/colabfold_batch/stereo_chemical_props.txt\"#" batch.py)
@@ -73,7 +73,7 @@ RUN cd ${COLABFOLDDIR}
 RUN colabfold-conda/bin/python3.7 -m colabfold.download
 
 # # complete installation
-ENV PATH="/src/colabfold-conda/bin:$PATH"
+ENV PATH="/src/bin:$PATH"
 
 RUN echo "Download of alphafold2 weights finished."
 RUN echo "-----------------------------------------"
