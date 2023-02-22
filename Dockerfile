@@ -73,7 +73,7 @@ RUN cd ${COLABFOLDDIR}
 RUN colabfold-conda/bin/python3.8 -m colabfold.download
 
 # # complete installation
-ENV PATH="/src/bin:$PATH"
+ENV PATH="/src/colabfold-conda/bin:$PATH"
 
 RUN echo "Download of alphafold2 weights finished."
 RUN echo "-----------------------------------------"
