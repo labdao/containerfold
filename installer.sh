@@ -8,13 +8,13 @@ if [ ! -d containerfold/params ]; then
 fi
 
 # move the model weights to the container
+echo "Moving model weights to container"
 docker run -v $(pwd)/containerfold/params:/params containerfold:blank sh -c "cp -r /params/* /colabfold_batch/ && chown -R root:root /colabfold_batch"
 
 # change the tag
-docker commit $(docker ps -lq) latest
+echo "Changing tag"
+docker commit $(docker ps -lq) containerfold:latest
 
 # test the container
-docker run containerfold:latest python3 /colabfold_batch --help
-
-# push the container
-docker push niklastr/containerfold:latest
+echo "Testing container"
+docker run containerfold:latest colabfold_batch --help
