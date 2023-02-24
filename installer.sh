@@ -7,14 +7,18 @@ if [ ! -d containerfold/params ]; then
     exit 1
 fi
 
-# move the model weights to the container
+# moving weights to the container
 echo "Moving model weights to container"
 docker run -v $(pwd)/containerfold/params:/params containerfold:blank sh -c "cp -r /params/* /colabfold_batch/colabfold/params && chown -R root:root /colabfold_batch"
 
-# change the tag
+# changing tags
 echo "Changing tag"
 docker commit $(docker ps -lq) containerfold:latest
+docker tag containerfold:latest public.ecr.aws/p7l9w5o7/containerfold:latest
 
-# test the container
+# testing container
 echo "Testing container"
 docker run containerfold:latest colabfold_batch --help
+
+# pushing container
+docker push public.ecr.aws/p7l9w5o7/containerfold:latest
