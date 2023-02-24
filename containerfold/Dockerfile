@@ -9,3 +9,6 @@ RUN apt-get install -y tmux wget curl nano
 # checking installation of tools
 RUN gcc --version
 RUN nvcc --version
+
+# creating param dir
+RUN mkdir -p /colabfold_batch/colabfold/params
