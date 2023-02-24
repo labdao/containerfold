@@ -9,7 +9,7 @@ fi
 
 # move the model weights to the container
 echo "Moving model weights to container"
-docker run -v $(pwd)/containerfold/params:/params containerfold:blank sh -c "cp -r /params/* /colabfold_batch/ && chown -R root:root /colabfold_batch"
+docker run -v $(pwd)/containerfold/params:/params containerfold:blank sh -c "cp -r /params/* /colabfold_batch/colabfold/params && chown -R root:root /colabfold_batch"
 
 # change the tag
 echo "Changing tag"
