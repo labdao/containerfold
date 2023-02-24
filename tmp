@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Step 1: Build the container
+docker build -t blank ../containerfold
+
+# Step 2: Check if the model weights exist in the local directory
+if [ ! -d /path/to/model/weights ]; then
+    echo "Model weights not found in local directory, please mount the directory and try again"
+    exit 1
+fi
+
+# Step 3: Copy the model weights into the container
+docker run -v /path/to/model/weights:/weights blank sh -c "cp -r /weights/* /app/model_weights/ && chown -R root:root /app/model_weights"
+
+# Step 4: Tag the container with the latest tag
+docker commit $(docker ps -lq) latest
+
+
+# download weights
+docker run -it --rm -v $(pwd):/colabfold_batch containerfold
+RUN cd colabfold_batch
+RUN colabfold-conda/bin/python3.7 -m colabfold.download
+RUN mv /root/.cache/colabfold /colabfold_batch/
+
+# create test
+RUN mkdir /test
+RUN echo ">sp|P61823"$'\n'"MALKSLVLLSLLVLVLLLVRVQPSLGKETAAAKFERQHMDSSTSAASSSNYCNQMMKSRN" > /test.fasta
+
+# run test
+RUN cd /
+RUN colabfold_batch --amber --templates --num-recycle 3 /test/test.fasta outputdir/ --cpu

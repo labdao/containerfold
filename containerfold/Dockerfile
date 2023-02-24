@@ -1,0 +1,11 @@
+# FROM ubuntu:focal
+FROM athbaltzis/colabfold_proteinfold:v0.11
+
+# installing packages required for installation
+RUN echo "downloading basic packages for installation"
+RUN apt-get update
+RUN apt-get install -y tmux wget curl nano
+
+# checking installation of tools
+RUN gcc --version
+RUN nvcc --version
