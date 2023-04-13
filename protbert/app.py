@@ -9,19 +9,20 @@ from Bio.SeqRecord import SeqRecord
 import torch
 import re
 import json
+import csv
 
 app = typer.Typer()
 
 def softmax(arr):
     return np.exp(arr) / np.sum(np.exp(arr), axis=0)
 
-def generate_embedding(record, tokenizer, bert_model, output_path):
+def generate_embedding(record, tokenizer, model, output_path):
     sequence = re.sub(r"[UZOB]", "X", str(record.seq))
     spaced_sequence = " ".join(sequence)
     print("embedding sequence: ", spaced_sequence)
     encoded_input = tokenizer(spaced_sequence, return_tensors='pt')
-    bert_output = bert_model(**encoded_input)
-    embeddings = bert_output.last_hidden_state.detach().numpy()
+    model_output = model(**encoded_input)
+    embeddings = model_output.last_hidden_state.detach().numpy()
     np.savetxt(os.path.join(output, f"{record.id}_encoded.csv"), embeddings[0], delimiter=",")
 
 def fill_mask(record, unmasker, output_path):
@@ -34,7 +35,7 @@ def fill_mask(record, unmasker, output_path):
     with open(os.path.join(output, f"{record.id}_filled_mask.json"), "w") as f:
         json.dump(predictions, f)
 
-def generate_scoring_matrix(record, tokenizer, bert_model, output_path):
+def generate_scoring_matrix(record, tokenizer, masked_model, output_path):
     sequence = str(record.seq)
     print("generating scoring matrix for sequence: ", sequence)
 
@@ -47,9 +48,9 @@ def generate_scoring_matrix(record, tokenizer, bert_model, output_path):
         encoded_input = tokenizer(spaced_masked_sequence, return_tensors='pt')
 
         with torch.no_grad():
-            bert_output = bert_model(**encoded_input)
+            model_output = masked_model(**encoded_input)
 
-        scores = bert_output.logits
+        scores = model_output.logits
         print("scored sequence: ", scores)
         mask_position = torch.tensor([idx], dtype=torch.long)
         mask_scores = scores[0, mask_position, :]
@@ -63,52 +64,85 @@ def generate_scoring_matrix(record, tokenizer, bert_model, output_path):
         all_token_scores.append(token_score_dict)
 
     # Write the scoring matrix to a CSV file
-    output_file = os.path.join(output, f"{record.id}_scoring_matrix.csv")
+    output_file = os.path.join(output_path, f"{record.id}_scoring_matrix.csv")
     with open(output_file, 'w', newline='') as csvfile:
         print("writing scoring matrix to " + output_file)
-        fieldnames = ['position'] + list(tokenizer.vocab.keys())
+        fieldnames = ['position', 'identity'] + list(tokenizer.vocab.keys())
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
         for i, token_scores in enumerate(all_token_scores):
-            row = {'position': i+1}
+            row = {'position': i+1, 'identity': sequence[i]}
             row.update(token_scores)
             writer.writerow(row)
 
     print(f"scoring matrix saved to {output_file}")
+    return(output_file)
 
-def top_k(sequence, unmasker, k):
-    # Your code for top_k_mode here
-    print("stay tuned")
+def top_k(scoring_matrix_path, k, output_path):
+    scoring_matrix = pd.read_csv(scoring_matrix_path)
+
+    # Convert the data types of the scoring matrix columns to float
+    for col in scoring_matrix.columns[2:]:
+        scoring_matrix[col] = scoring_matrix[col].astype(float)
+
+    top_k_sequences = []
+
+    for i, row in scoring_matrix.iterrows():
+    # Excluding the first two columns (position and identity) and finding the k largest probabilities
+        top_k_tokens = row.iloc[2:].nlargest(k).index.values
+        if i == 0:
+            for token in top_k_tokens:
+                top_k_sequences.append(token)
+        else:
+            new_sequences = []
+            for seq in top_k_sequences:
+                for token in top_k_tokens:
+                    new_sequences.append(seq + token)
+            top_k_sequences = new_sequences
+
+
+    # Convert the resulting sequences to SeqRecord objects
+    seq_records = []
+    for i, seq in enumerate(top_k_sequences):
+        seq_record = SeqRecord(Seq.Seq(seq), id=f"sequence_{i+1}", description="")
+        seq_records.append(seq_record)
+    print(f"Generated {len(seq_records)} sequences.")
+
+    # Write the SeqRecords to a FASTA file
+    output_file = os.path.join(output_path, "top_k.fasta")
+    with open(output_file, "w") as output_handle:
+        SeqIO.write(seq_records, output_handle, "fasta")
 
 def sample_n(sequence, unmasker, n):
     # Your code for sample_n_mode here
     print("stay tuned")
 
 @app.command()
-def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
+def main(input: str, output_path: str, mode: str, k: int = 1, n: int = 10):
     # Create output directory if it doesn't exist
-    if not os.path.exists(output):
-        os.makedirs(output)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
     
     # Load models and tokenizer
     tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
     masked_model = BertForMaskedLM.from_pretrained("Rostlab/prot_bert")
-    bert_model = BertModel.from_pretrained("Rostlab/prot_bert")
+    model = BertModel.from_pretrained("Rostlab/prot_bert")
     unmasker = pipeline('fill-mask', model=masked_model, tokenizer=tokenizer)
 
     # Load input sequence
     record = SeqIO.read(input, "fasta")
 
     if mode == "embedding":
-        generate_embedding(record, tokenizer, bert_model, output_path)
+        generate_embedding(record, tokenizer, model, output_path)
     elif mode == "fill-mask":
         fill_mask(record, unmasker, output_path)
         # Save the result to a file or print it as needed
     elif mode == "scoring-matrix":
-        generate_scoring_matrix(record, tokenizer, bert_model, output_path)
+        generate_scoring_matrix(record, tokenizer, masked_model, output_path)
     elif mode == "top-k":
-        top_k(record, unmasker, k, output_path)
+        matrix_path = generate_scoring_matrix(record, tokenizer, masked_model, output_path)
+        top_k(matrix_path, k, output_path)
     elif mode == "sample-n":
         sample_n(record, unmasker, n, output_path)
     else:
