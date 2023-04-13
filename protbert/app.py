@@ -76,14 +76,14 @@ def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
     if mode == "embedding":
         generate_embedding(record, tokenizer, bert_model, output)
     elif mode == "fill-mask":
-        fill_mask(sequence, unmasker)
+        fill_mask(sequence, unmasker, output)
         # Save the result to a file or print it as needed
     elif mode == "scoring-matrix":
-        generate_scoring_matrix(sequence, unmasker)
+        generate_scoring_matrix(sequence, unmasker, output)
     elif mode == "top-k":
-        top_k(sequence, unmasker, k)
+        top_k(sequence, unmasker, k, output)
     elif mode == "sample-n":
-        sample_n(sequence, unmasker, n)
+        sample_n(sequence, unmasker, n, output)
     else:
         typer.echo("Invalid mode. Please choose from 'embedding', 'fill-mask', 'scoring-matrix', 'top-k', or 'sample-n'.")
 
