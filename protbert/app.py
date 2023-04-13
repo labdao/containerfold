@@ -35,27 +35,7 @@ def fill_mask(record, unmasker, output):
         json.dump(predictions, f)
 
 def generate_scoring_matrix(record, unmasker):
-    sequence = str(record.seq).replace("X", "[MASK]")
-    spaced_sequence = " ".join(sequence)
-    predictions = unmasker(spaced_sequence)
-
-    # Initialize an empty DataFrame to store scores
-    scored = pd.DataFrame()
-
-    # Process predictions for each [MASK] token
-    for idx, pred_list in enumerate(predictions):
-        scores = [prediction["score"] for prediction in pred_list]
-        temp_df = pd.DataFrame(scores).T
-        temp_df.columns = [prediction["token_str"] for prediction in pred_list]
-
-        # Merge the DataFrame with the scored DataFrame
-        if idx == 0:
-            scored = temp_df
-        else:
-            scored = scored.add(temp_df, fill_value=0)
-    
-    return scored
-
+    print("stay tuned")
 
 def top_k(sequence, unmasker, k):
     # Your code for top_k_mode here
@@ -72,7 +52,7 @@ def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
         os.makedirs(output)
     
     # Load models and tokenizer
-    tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=True)
+    tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
     masked_model = BertForMaskedLM.from_pretrained("Rostlab/prot_bert")
     bert_model = BertModel.from_pretrained("Rostlab/prot_bert")
     unmasker = pipeline('fill-mask', model=masked_model, tokenizer=tokenizer)
