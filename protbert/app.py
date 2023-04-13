@@ -82,25 +82,26 @@ def generate_scoring_matrix(record, tokenizer, masked_model, output_path):
 def top_k(scoring_matrix_path, k, output_path):
     scoring_matrix = pd.read_csv(scoring_matrix_path)
 
-    # Convert the data types of the scoring matrix columns to float
-    for col in scoring_matrix.columns[2:]:
-        scoring_matrix[col] = scoring_matrix[col].astype(float)
+    
 
+    print("generating top k sequences")
     top_k_sequences = []
-
     for i, row in scoring_matrix.iterrows():
     # Excluding the first two columns (position and identity) and finding the k largest probabilities
-        top_k_tokens = row.iloc[2:].nlargest(k).index.values
+        numeric_series = row.iloc[2:].astype(float)
+        top_k_tokens = numeric_series.nlargest(k).index.values
         if i == 0:
             for token in top_k_tokens:
                 top_k_sequences.append(token)
+                print(top_k_sequences)
         else:
             new_sequences = []
             for seq in top_k_sequences:
                 for token in top_k_tokens:
                     new_sequences.append(seq + token)
+                    print(new_sequences)
             top_k_sequences = new_sequences
-
+    print(top_k_sequences)
 
     # Convert the resulting sequences to SeqRecord objects
     seq_records = []
