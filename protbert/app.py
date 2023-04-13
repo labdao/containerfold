@@ -1,61 +1,91 @@
-# app.py
 import typer
-from pathlib import Path
-from transformers import AutoModelForMaskedLM, AutoTokenizer
+import os
+import pandas as pd
+import numpy as np
+from transformers import BertForMaskedLM, BertTokenizer, pipeline, BertModel
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import torch
+import re
+import json
 
 app = typer.Typer()
 
-def read_fasta_file(fasta_file: str):
-    with open(fasta_file, "r") as f:
-        fasta_content = f.read().strip()
-    
-    lines = fasta_content.split("\n")
-    sequence = "".join(lines[1:])
-    
-    return sequence
+def softmax(arr):
+    return np.exp(arr) / np.sum(np.exp(arr), axis=0)
 
-def write_fasta_file(fasta_file: str, header: str, sequence: str):
-    with open(fasta_file, "w") as f:
-        f.write(f"{header}\n{sequence}\n")
+def generate_embedding(record, tokenizer, bert_model, output):
+    sequence = re.sub(r"[UZOB]", "X", str(record.seq))
+    encoded_input = tokenizer(sequence, return_tensors='pt')
+    bert_output = bert_model(**encoded_input)
+    embeddings = bert_output.last_hidden_state.detach().numpy()
+    np.savetxt(os.path.join(output, f"{record.id}_encoded.csv"), embeddings[0], delimiter=",")
+
+def fill_mask(sequence, unmasker, output):
+    predictions = unmasker(sequence)
+    
+    with open(os.path.join(output, "predictions.json"), "w") as f:
+        json.dump(predictions, f)
+
+def generate_scoring_matrix(sequence, unmasker):
+    predictions = unmasker(sequence)
+
+    # Initialize an empty DataFrame to store scores
+    scored = pd.DataFrame()
+
+    # Process predictions for each [MASK] token
+    for idx, pred_list in enumerate(predictions):
+        scores = [prediction["score"] for prediction in pred_list]
+        temp_df = pd.DataFrame(scores).T
+        temp_df.columns = [prediction["token_str"] for prediction in pred_list]
+
+        # Merge the DataFrame with the scored DataFrame
+        if idx == 0:
+            scored = temp_df
+        else:
+            scored = scored.add(temp_df, fill_value=0)
+    
+    return scored
+
+
+def top_k(sequence, unmasker, k):
+    # Your code for top_k_mode here
+    print("stay tuned")
+
+def sample_n(sequence, unmasker, n):
+    # Your code for sample_n_mode here
+    print("stay tuned")
 
 @app.command()
-import torch
+def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
+    # Create output directory if it doesn't exist
+    if not os.path.exists(output):
+        os.makedirs(output)
+    
+    # Load models and tokenizer
+    tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
+    masked_model = BertForMaskedLM.from_pretrained("Rostlab/prot_bert")
+    bert_model = BertModel.from_pretrained("Rostlab/prot_bert")
+    unmasker = pipeline('fill-mask', model=masked_model, tokenizer=tokenizer)
 
-def process_protein_sequence(
-    input_sequence: Path = typer.Argument(..., help="Path to the protein sequence in FASTA format"),
-    output_sequence: Path = typer.Argument(..., help="Path to the output FASTA file with the predicted sequence")
-):
-    if input_sequence.is_file():
-        original_sequence = read_fasta_file(input_sequence)
+    # Load input sequence
+    record = SeqIO.read(input, "fasta")
+    sequence = str(record.seq).replace("X", "[MASK]")
 
-        tokenizer = AutoTokenizer.from_pretrained("Rostlab/prot_bert_bfd")
-        model = AutoModelForMaskedLM.from_pretrained("Rostlab/prot_bert_bfd")
-
-        tokens = tokenizer(original_sequence, return_tensors="pt", padding=True, truncation=True)
-        prediction = model(**tokens)
-
-        logits = prediction.logits
-        predicted_indices = torch.argmax(logits, dim=-1).squeeze().tolist()
-
-        # Replace 'X' symbols in the original sequence with the predicted amino acids
-        predicted_sequence = ""
-        token_sequence = tokenizer.tokenize(original_sequence)
-        for i, token in enumerate(token_sequence):
-            if token == "X":
-                predicted_aa = tokenizer.convert_ids_to_tokens([predicted_indices[i]])[0]
-                predicted_sequence += predicted_aa
-            else:
-                predicted_sequence += token
-
-        # Write the predicted sequence to the output FASTA file
-        output_header = ">predicted_sequence"
-        write_fasta_file(output_sequence, output_header, predicted_sequence)
-
-        print(f"Processed protein sequence and saved to {output_sequence}")
+    if mode == "embedding":
+        generate_embedding(record, tokenizer, bert_model, output)
+    elif mode == "fill-mask":
+        fill_mask(sequence, unmasker)
+        # Save the result to a file or print it as needed
+    elif mode == "scoring-matrix":
+        generate_scoring_matrix(sequence, unmasker)
+    elif mode == "top-k":
+        top_k(sequence, unmasker, k)
+    elif mode == "sample-n":
+        sample_n(sequence, unmasker, n)
     else:
-        typer.echo(f"File not found: {input_sequence}")
-        raise typer.Exit(code=1)
-
+        typer.echo("Invalid mode. Please choose from 'embedding', 'fill-mask', 'scoring-matrix', 'top-k', or 'sample-n'.")
 
 if __name__ == "__main__":
-    app()
+    typer.run(main)
