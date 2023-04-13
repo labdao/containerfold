@@ -34,8 +34,48 @@ def fill_mask(record, unmasker, output):
     with open(os.path.join(output, f"{record.id}_filled_mask.json"), "w") as f:
         json.dump(predictions, f)
 
-def generate_scoring_matrix(record, unmasker):
-    print("stay tuned")
+def generate_scoring_matrix(record, tokenizer, bert_model, output):
+    sequence = str(record.seq)
+    print("generating scoring matrix for sequence: ", sequence)
+
+    all_token_scores = []
+    for idx in range(len(sequence)):
+        x_sequence = sequence[:idx] + "X" + sequence[idx+1:]
+        spaced_sequence = " ".join(x_sequence)
+        spaced_masked_sequence = spaced_sequence.replace("X", "[MASK]")
+        print("tokenising masked sequence: ", spaced_masked_sequence)
+        encoded_input = tokenizer(spaced_masked_sequence, return_tensors='pt')
+
+        with torch.no_grad():
+            output = bert_model(**encoded_input)
+
+        scores = output.logits
+        print("scored sequence: ", scores)
+        mask_position = torch.tensor([idx], dtype=torch.long)
+        mask_scores = scores[0, mask_position, :]
+
+        token_scores = torch.softmax(mask_scores, dim=-1).squeeze()
+
+        token_score_dict = {}
+        for token, token_score in zip(tokenizer.vocab.keys(), token_scores):
+            token_score_dict[token] = token_score.item()
+
+        all_token_scores.append(token_score_dict)
+
+    # Write the scoring matrix to a CSV file
+    output_file = os.path.join(output, f"{record.id}_scoring_matrix.csv")
+    with open(output_file, 'w', newline='') as csvfile:
+        print("writing scoring matrix to " + output_file)
+        fieldnames = ['position'] + list(tokenizer.vocab.keys())
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for i, token_scores in enumerate(all_token_scores):
+            row = {'position': i+1}
+            row.update(token_scores)
+            writer.writerow(row)
+
+    print(f"scoring matrix saved to {output_file}")
 
 def top_k(sequence, unmasker, k):
     # Your code for top_k_mode here
@@ -66,7 +106,7 @@ def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
         fill_mask(record, unmasker, output)
         # Save the result to a file or print it as needed
     elif mode == "scoring-matrix":
-        generate_scoring_matrix(record, unmasker, output)
+        generate_scoring_matrix(record, tokenizer, bert_model, output)
     elif mode == "top-k":
         top_k(record, unmasker, k, output)
     elif mode == "sample-n":
