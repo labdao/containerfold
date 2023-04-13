@@ -15,7 +15,7 @@ app = typer.Typer()
 def softmax(arr):
     return np.exp(arr) / np.sum(np.exp(arr), axis=0)
 
-def generate_embedding(record, tokenizer, bert_model, output):
+def generate_embedding(record, tokenizer, bert_model, output_path):
     sequence = re.sub(r"[UZOB]", "X", str(record.seq))
     spaced_sequence = " ".join(sequence)
     print("embedding sequence: ", spaced_sequence)
@@ -24,7 +24,7 @@ def generate_embedding(record, tokenizer, bert_model, output):
     embeddings = bert_output.last_hidden_state.detach().numpy()
     np.savetxt(os.path.join(output, f"{record.id}_encoded.csv"), embeddings[0], delimiter=",")
 
-def fill_mask(record, unmasker, output):
+def fill_mask(record, unmasker, output_path):
     sequence = str(record.seq)
     spaced_sequence = " ".join(sequence)
     spaced_masked_sequence = spaced_sequence.replace("X", "[MASK]")
@@ -34,7 +34,7 @@ def fill_mask(record, unmasker, output):
     with open(os.path.join(output, f"{record.id}_filled_mask.json"), "w") as f:
         json.dump(predictions, f)
 
-def generate_scoring_matrix(record, tokenizer, bert_model, output):
+def generate_scoring_matrix(record, tokenizer, bert_model, output_path):
     sequence = str(record.seq)
     print("generating scoring matrix for sequence: ", sequence)
 
@@ -47,9 +47,9 @@ def generate_scoring_matrix(record, tokenizer, bert_model, output):
         encoded_input = tokenizer(spaced_masked_sequence, return_tensors='pt')
 
         with torch.no_grad():
-            output = bert_model(**encoded_input)
+            bert_output = bert_model(**encoded_input)
 
-        scores = output.logits
+        scores = bert_output.logits
         print("scored sequence: ", scores)
         mask_position = torch.tensor([idx], dtype=torch.long)
         mask_scores = scores[0, mask_position, :]
@@ -101,16 +101,16 @@ def main(input: str, output: str, mode: str, k: int = 10, n: int = 10):
     record = SeqIO.read(input, "fasta")
 
     if mode == "embedding":
-        generate_embedding(record, tokenizer, bert_model, output)
+        generate_embedding(record, tokenizer, bert_model, output_path)
     elif mode == "fill-mask":
-        fill_mask(record, unmasker, output)
+        fill_mask(record, unmasker, output_path)
         # Save the result to a file or print it as needed
     elif mode == "scoring-matrix":
-        generate_scoring_matrix(record, tokenizer, bert_model, output)
+        generate_scoring_matrix(record, tokenizer, bert_model, output_path)
     elif mode == "top-k":
-        top_k(record, unmasker, k, output)
+        top_k(record, unmasker, k, output_path)
     elif mode == "sample-n":
-        sample_n(record, unmasker, n, output)
+        sample_n(record, unmasker, n, output_path)
     else:
         typer.echo("Invalid mode. Please choose from 'embedding', 'fill-mask', 'scoring-matrix', 'top-k', or 'sample-n'.")
 
