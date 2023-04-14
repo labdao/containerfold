@@ -1,4 +1,6 @@
-FROM ghcr.io/labdao/moler:main
+# FROM ubuntu:focal
+FROM athbaltzis/colabfold_proteinfold:v0.11
+LABEL container="colabfold"
 
 # installing packages required for installation
 RUN echo "downloading basic packages for installation"
@@ -10,5 +12,4 @@ RUN gcc --version
 RUN nvcc --version
 
 # creating param dir
-# TODO harmonize with public Moler
-RUN mkdir model_dir
+RUN mkdir -p /colabfold_batch/colabfold/params

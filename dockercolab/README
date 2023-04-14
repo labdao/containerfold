@@ -1,5 +1,0 @@
-# 
-open a google collab and 
-!pip freeze > requirements.txt
-!lsb_release -a
-
