@@ -2,7 +2,7 @@ import typer
 import os
 import pandas as pd
 import numpy as np
-from transformers import BertForMaskedLM, BertTokenizer, pipeline, BertModel
+from transformers import AutoTokenizer, AutoModelForMaskedLM, AutoModelForCausalLM, AutoModel, pipeline
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -23,7 +23,12 @@ def generate_embedding(record, tokenizer, model, output_path):
     encoded_input = tokenizer(spaced_sequence, return_tensors='pt')
     model_output = model(**encoded_input)
     embeddings = model_output.last_hidden_state.detach().numpy()
-    np.savetxt(os.path.join(output, f"{record.id}_encoded.csv"), embeddings[0], delimiter=",")
+
+    output_file = os.path.join(output_path, f"{record.id}_encoded.csv")
+    np.savetxt(output_file, embeddings[0], delimiter=",")
+
+    print(f"embedding saved to {output_file}")
+    return(output_file)
 
 def fill_mask(record, unmasker, output_path):
     sequence = str(record.seq)
@@ -32,10 +37,14 @@ def fill_mask(record, unmasker, output_path):
     print("filling masked sequence: ", spaced_masked_sequence)
     predictions = unmasker(spaced_masked_sequence)
     
-    with open(os.path.join(output, f"{record.id}_filled_mask.json"), "w") as f:
+    output_file = os.path.join(output_path, f"{record.id}_filled_mask.json")
+    with open(output_file, "w") as f:
         json.dump(predictions, f)
 
-def generate_scoring_matrix(record, tokenizer, masked_model, output_path):
+    print(f"filled mask saved to {output_file}")
+    return(output_file)
+
+def conditional_probability_matrix(record, tokenizer, masked_model, output_path):
     sequence = str(record.seq)
     print("generating scoring matrix for sequence: ", sequence)
 
@@ -79,73 +88,75 @@ def generate_scoring_matrix(record, tokenizer, masked_model, output_path):
     print(f"scoring matrix saved to {output_file}")
     return(output_file)
 
-def top_k(scoring_matrix_path, k, output_path):
-    scoring_matrix = pd.read_csv(scoring_matrix_path)
+def joint_probability_score():
+    #TODO
+    print("coming soon")
 
-    
+def generate(record, tokenizer, generator_model, output_path, max_length=50, top_k=5):
+    # prompt
+    sequence = str(record.seq)
+    spaced_sequence = " ".join(sequence)
+    spaced_masked_sequence = spaced_sequence.replace("X", "[MASK]")
+    print("prompt sequence: ", spaced_masked_sequence)
 
-    print("generating top k sequences")
-    top_k_sequences = []
-    for i, row in scoring_matrix.iterrows():
-    # Excluding the first two columns (position and identity) and finding the k largest probabilities
-        numeric_series = row.iloc[2:].astype(float)
-        top_k_tokens = numeric_series.nlargest(k).index.values
-        if i == 0:
-            for token in top_k_tokens:
-                top_k_sequences.append(token)
-                print(top_k_sequences)
-        else:
-            new_sequences = []
-            for seq in top_k_sequences:
-                for token in top_k_tokens:
-                    new_sequences.append(seq + token)
-                    print(new_sequences)
-            top_k_sequences = new_sequences
-    print(top_k_sequences)
-
-    # Convert the resulting sequences to SeqRecord objects
+    # generate
+    generated_sequences = generator_model(spaced_masked_sequence, max_length=max_length, top_k=top_k)
     seq_records = []
-    for i, seq in enumerate(top_k_sequences):
-        seq_record = SeqRecord(Seq.Seq(seq), id=f"sequence_{i+1}", description="")
+    for i, seq in enumerate(generated_sequences):
+        masked_sequence = seq['generated_text'].replace(' ', '')
+        generated_sequence = masked_sequence.replace("[MASK]", 'X')
+        seq_record = SeqRecord(Seq(generated_sequence), id=f"sequence_{i+1}", description="")
         seq_records.append(seq_record)
-    print(f"Generated {len(seq_records)} sequences.")
-
-    # Write the SeqRecords to a FASTA file
-    output_file = os.path.join(output_path, "top_k.fasta")
+    output_file = os.path.join(output_path, "generated_sequences.fasta")
     with open(output_file, "w") as output_handle:
         SeqIO.write(seq_records, output_handle, "fasta")
-
-def sample_n(sequence, unmasker, n):
-    # Your code for sample_n_mode here
-    print("stay tuned")
+    print(f"Generated sequences saved to {output_file}")
 
 @app.command()
-def main(input: str, output_path: str, mode: str, k: int = 1, n: int = 10):
+def main(
+        input: str = typer.Argument(..., help="Path to the input fasta file."),
+        output_path: str = typer.Argument(..., help="Path to the output directory."),
+        model: str = typer.Argument("Rostlab/prot_bert", help="BERT model to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
+        mode: str = typer.Option(
+            ...,
+            help="Mode of operation. Choose from 'embedding', 'fill-mask', 'conditional-probability', 'joint-probability', or 'generate'.",
+            prompt="Select mode of operation",
+            case_sensitive=False,
+            show_choices=True,
+            show_default=True,
+            metavar="MODE",
+            callback=lambda value: value.lower(),
+            autocompletion=lambda: ["embedding", "fill-mask", "generate", "conditional-probability", "joint-probability"],
+        ),
+    ):
     # Create output directory if it doesn't exist
     if not os.path.exists(output_path):
         os.makedirs(output_path)
+
+    # Provided model
+    print(f"Using model {model}")
     
     # Load models and tokenizer
-    tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
-    masked_model = BertForMaskedLM.from_pretrained("Rostlab/prot_bert")
-    model = BertModel.from_pretrained("Rostlab/prot_bert")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=False)
+    masked_model = AutoModelForMaskedLM.from_pretrained(model_name)
+    generator_model = AutoModelForCausalLM.from_pretrained(model_name)
+    plain_model = AutoModel.from_pretrained(model_name)
     unmasker = pipeline('fill-mask', model=masked_model, tokenizer=tokenizer)
+    generator = pipeline('text-generation', model=generator_model, tokenizer=tokenizer)
 
     # Load input sequence
     record = SeqIO.read(input, "fasta")
 
     if mode == "embedding":
-        generate_embedding(record, tokenizer, model, output_path)
+        generate_embedding(record, tokenizer, plain_model, output_path)
     elif mode == "fill-mask":
         fill_mask(record, unmasker, output_path)
-        # Save the result to a file or print it as needed
-    elif mode == "scoring-matrix":
+    elif mode == "conditional-probability":
         generate_scoring_matrix(record, tokenizer, masked_model, output_path)
-    elif mode == "top-k":
-        matrix_path = generate_scoring_matrix(record, tokenizer, masked_model, output_path)
-        top_k(matrix_path, k, output_path)
-    elif mode == "sample-n":
-        sample_n(record, unmasker, n, output_path)
+    elif mode == "joint-probability":
+        joint_probability_score()
+    elif mode == "generate":
+        generate(record, tokenizer, generator, output_path)
     else:
         typer.echo("Invalid mode. Please choose from 'embedding', 'fill-mask', 'scoring-matrix', 'top-k', or 'sample-n'.")
 
