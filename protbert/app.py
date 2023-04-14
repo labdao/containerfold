@@ -137,7 +137,7 @@ def main(
     print(f"Using model {huggingface_model_name}")
     
     # Load models and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=False)
+    tokenizer = AutoTokenizer.from_pretrained(huggingface_model_name, do_lower_case=False)
     masked_model = AutoModelForMaskedLM.from_pretrained(huggingface_model_name)
     generator_model = AutoModelForCausalLM.from_pretrained(huggingface_model_name)
     plain_model = AutoModel.from_pretrained(huggingface_model_name)
