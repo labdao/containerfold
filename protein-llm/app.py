@@ -116,7 +116,7 @@ def generate(record, tokenizer, generator_model, output_path, max_length=50, top
 def main(
         input: str = typer.Argument(..., help="Path to the input fasta file."),
         output_path: str = typer.Argument(..., help="Path to the output directory."),
-        model_name: str = typer.Argument("Rostlab/prot_bert", help="BERT model to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
+        huggingface_model_name: str = typer.Argument("Rostlab/prot_bert", help="The model name to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
         mode: str = typer.Option(
             ...,
             help="Mode of operation. Choose from 'embedding', 'fill-mask', 'conditional-probability', 'joint-probability', or 'generate'.",
@@ -134,13 +134,13 @@ def main(
         os.makedirs(output_path)
 
     # Provided model
-    print(f"Using model {model_name}")
+    print(f"Using model {huggingface_model_name}")
     
     # Load models and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=False)
-    masked_model = AutoModelForMaskedLM.from_pretrained(model_name)
-    generator_model = AutoModelForCausalLM.from_pretrained(model_name)
-    plain_model = AutoModel.from_pretrained(model_name)
+    masked_model = AutoModelForMaskedLM.from_pretrained(huggingface_model_name)
+    generator_model = AutoModelForCausalLM.from_pretrained(huggingface_model_name)
+    plain_model = AutoModel.from_pretrained(huggingface_model_name)
     unmasker = pipeline('fill-mask', model=masked_model, tokenizer=tokenizer)
     generator = pipeline('text-generation', model=generator_model, tokenizer=tokenizer)
 
