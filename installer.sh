@@ -46,7 +46,7 @@ manage_ecr_repositories() {
 
     # 3) Create a new repository called XYZ if the repository does not yet exist in the public ECR
     for label in $dockerfiles_with_label; do
-        repository_name=$(echo "$label" | tr -d '[:space:]') # Remove whitespace
+        repository_name=$(echo "$label" | tr -d '[:space:]"') # Remove whitespace and quotes
         if [[ ! $ecr_repositories =~ $repository_name ]]; then
             echo "Creating new ECR Public repository: $repository_name"
             aws ecr-public create-repository --repository-name "$repository_name"
