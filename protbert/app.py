@@ -116,7 +116,7 @@ def generate(record, tokenizer, generator_model, output_path, max_length=50, top
 def main(
         input: str = typer.Argument(..., help="Path to the input fasta file."),
         output_path: str = typer.Argument(..., help="Path to the output directory."),
-        model: str = typer.Argument("Rostlab/prot_bert", help="BERT model to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
+        model_name: str = typer.Argument("Rostlab/prot_bert", help="BERT model to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
         mode: str = typer.Option(
             ...,
             help="Mode of operation. Choose from 'embedding', 'fill-mask', 'conditional-probability', 'joint-probability', or 'generate'.",
@@ -134,7 +134,7 @@ def main(
         os.makedirs(output_path)
 
     # Provided model
-    print(f"Using model {model}")
+    print(f"Using model {model_name}")
     
     # Load models and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=False)
