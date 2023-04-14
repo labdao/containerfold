@@ -56,7 +56,25 @@ manage_ecr_repositories() {
     done
 }
 
-# Call the function
+build_and_push_container() {
+    local container_label="$1"
+
+    # 1) Build the container with the name and target -t XYZ:latest
+    echo "Building container: $container_label:latest"
+    docker build "$container_label" -t "$container_label:latest"
+
+    # 2) Check the ECR registry identity of the XYZ docker container
+    registry_uri=$(aws ecr-public describe-repositories --repository-names "$container_label" --query 'repositories[0].repositoryUri' --output text)
+    echo "ECR registry URI: $registry_uri"
+
+    # 3) Retag the XYZ:latest container to the ECR identity
+    echo "Retagging $container_label:latest to $registry_uri:latest"
+    docker tag "$container_label:latest" "$registry_uri:latest"
+
+    # 4) Push the docker container
+    echo "Pushing container to ECR: $registry_uri:latest"
+    docker push "$registry_uri:latest"
+}
 
 
 # Call the function
@@ -64,33 +82,10 @@ aws_configure_from_env
 login_ecr
 manage_ecr_repositories
 
-## TODO - add MoLeR
-
-## TODO remove
-# Add other functions and commands below
-
-# build container
-# docker build containerfold -t containerfold:blank
-# docker build protbert -t protbert --no-cache
-
-# check if the model weights exist in the container directory
-#if [ ! -d containerfold/params ]; then
-#    echo "Model weights not found in local directory, please mount the directory and try again"
-#    exit 1
-#fi
-
-# moving weights to the container
-#echo "Moving model weights to container"
-#docker run -v $(pwd)/containerfold/params:/params containerfold:blank sh -c "cp -r /params/* /colabfold_batch/colabfold/params && chown -R root:root /colabfold_batch"
-
-# changing tags
-#echo "Changing tag"
-#docker commit $(docker ps -lq) containerfold:latest
-#docker tag containerfold:latest public.ecr.aws/p7l9w5o7/containerfold:latest
-
-# testing container
-#echo "Testing container"
-#docker run containerfold:latest colabfold_batch --help
-
-# pushing container
-#docker push public.ecr.aws/p7l9w5o7/containerfold:latest
+# Call the function with the container label as a CLI argument
+if [ $# -eq 1 ]; then
+    build_and_push_container "$1"
+else
+    echo "Usage: $0 <container-label>"
+    exit 1
+fi
