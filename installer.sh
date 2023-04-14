@@ -61,7 +61,7 @@ build_and_push_container() {
 
     # 1) Build the container with the name and target -t XYZ:latest
     echo "Building container: $container_label:latest"
-    docker build "$container_label" -t "$container_label:latest"
+    docker build "$container_label" -t "$container_label:latest" --no-cache
 
     # 2) Check the ECR registry identity of the XYZ docker container
     registry_uri=$(aws ecr-public describe-repositories --repository-names "$container_label" --query 'repositories[0].repositoryUri' --output text)
