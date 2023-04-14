@@ -1,5 +1,6 @@
 # build container
 docker build containerfold -t containerfold:blank
+docker build protbert -t protbert --no-cache
 
 # check if the model weights exist in the container directory
 if [ ! -d containerfold/params ]; then

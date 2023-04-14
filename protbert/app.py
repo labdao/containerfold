@@ -116,7 +116,7 @@ def generate(record, tokenizer, generator_model, output_path, max_length=50, top
 def main(
         input: str = typer.Argument(..., help="Path to the input fasta file."),
         output_path: str = typer.Argument(..., help="Path to the output directory."),
-        huggingface_model_name: str = typer.Argument("Rostlab/prot_bert", help="The model name to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
+        huggingface_model_name: str = typer.Argument("Rostlab/prot_bert_bfd", help="The model name to use. Supply a Hugginface identifier. Default is 'Rostlab/prot_bert'."),
         mode: str = typer.Option(
             ...,
             help="Mode of operation. Choose from 'embedding', 'fill-mask', 'conditional-probability', 'joint-probability', or 'generate'.",
@@ -152,7 +152,7 @@ def main(
     elif mode == "fill-mask":
         fill_mask(record, unmasker, output_path)
     elif mode == "conditional-probability":
-        generate_scoring_matrix(record, tokenizer, masked_model, output_path)
+        conditional_probability_matrix(record, tokenizer, masked_model, output_path)
     elif mode == "joint-probability":
         joint_probability_score()
     elif mode == "generate":
