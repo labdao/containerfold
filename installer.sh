@@ -67,6 +67,36 @@ manage_ecr_repositories() {
     done
 }
 
+# Function to list all ":latest" tagged containers for the ECR repositories
+list_ecr_images() {
+    # Get the list of ECR repositories
+    ecr_repositories=$(aws ecr-public describe-repositories --query 'repositories[].repositoryName' --output text)
+
+    # Initialize an empty array to store the image URIs
+    ecr_images=()
+
+    # Loop through each repository and get the ":latest" tagged images
+    for repository in $ecr_repositories; do
+        # Get the registry ID and repository URI for the current repository
+        registry_info=$(aws ecr-public describe-repositories --repository-names "$repository" --query 'repositories[0].[registryId,repositoryUri]' --output text)
+        registry_id=$(echo "$registry_info" | awk '{print $1}')
+        repository_uri=$(echo "$registry_info" | awk '{print $2}')
+
+        # Get the image details for the current repository
+        image_details=$(aws ecr-public describe-images --registry-id "$registry_id" --repository-name "$repository" --query 'imageDetails[].imageTags[]' --output text)
+
+        # Check if the ":latest" tag exists for the current repository
+        if [[ $image_details =~ "latest" ]]; then
+            # Append the image URI with the ":latest" tag to the array
+            ecr_images+=("${repository_uri}:latest")
+        fi
+    done
+
+    # Print the image URIs
+    for image in "${ecr_images[@]}"; do
+        echo "$image"
+    done
+}
 
 build_and_push_container() {
     local container_label="$1"
@@ -93,6 +123,7 @@ build_and_push_container() {
 aws_configure_from_env
 login_ecr
 manage_ecr_repositories
+list_ecr_images
 
 # Call the function with the container label as a CLI argument
 if [ $# -eq 1 ]; then
