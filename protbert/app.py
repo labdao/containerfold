@@ -24,7 +24,7 @@ def generate_embedding(record, tokenizer, model, output_path):
     model_output = model(**encoded_input)
     embeddings = model_output.last_hidden_state.detach().numpy()
 
-    output_file = os.path.join(output_path, f"{record.id}_encoded.csv")
+    output_file = os.path.join(output_path, f"{record.id}_embedding.csv")
     np.savetxt(output_file, embeddings[0], delimiter=",")
 
     print(f"embedding saved to {output_file}")
@@ -73,7 +73,7 @@ def conditional_probability_matrix(record, tokenizer, masked_model, output_path)
         all_token_scores.append(token_score_dict)
 
     # Write the scoring matrix to a CSV file
-    output_file = os.path.join(output_path, f"{record.id}_scoring_matrix.csv")
+    output_file = os.path.join(output_path, f"{record.id}_conditional_probability_matrix.csv")
     with open(output_file, 'w', newline='') as csvfile:
         print("writing scoring matrix to " + output_file)
         fieldnames = ['position', 'identity'] + list(tokenizer.vocab.keys())
@@ -85,7 +85,7 @@ def conditional_probability_matrix(record, tokenizer, masked_model, output_path)
             row.update(token_scores)
             writer.writerow(row)
 
-    print(f"scoring matrix saved to {output_file}")
+    print(f"conditional probability matrix saved to {output_file}")
     return(output_file)
 
 def joint_probability_score():

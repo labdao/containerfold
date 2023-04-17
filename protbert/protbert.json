@@ -8,54 +8,30 @@
       "python3 app.py $(inputs.protein_sequence.filepath) /outputs --mode embedding",
       "python3 app.py $(inputs.protein_sequence.filepath) /outputs --mode conditional-probability"
     ],
-    "dockerPull": "ghcr.io/labdao/diffdock:main@sha256:b00432de73478d3da578e4a16ee669178828109f3c7bf9c58d44bb7514f68629",
+    "dockerPull": "public.ecr.aws/p7l9w5o7/protbert:latest",
     "gpuBool": true,
     "networkBool": true,
     "inputs": {
-      "protein": {
+      "protein_sequence": {
         "type": "File",
-        "glob": ["*.pdb"]
-      },
-      "small_molecule": {
-        "type": "File",
-        "glob": ["*.sdf", "*.mol2"]
-      },
-      "repr_layers": {
-        "type": "int",
-        "default": "33"
-      },
-      "inference_steps": {
-        "type": "int",
-        "default": "20"
-      },
-      "samples_per_complex": {
-        "type": "int",
-        "default": "40"
-      },
-      "batch_size": {
-        "type": "int",
-        "default": "10"
-      },
-      "actual_steps": {
-        "type": "int",
-        "default": "18"
+        "glob": ["*.fasta", "*.fa", "*.faa", "*.fna", "*.ffn", "*.frn", "*.fsa", "*.fas", "*.txt"]
       }
     },
     "outputs": {
-      "best_docked_small_molecule": {
+      "completed_protein_sequence": {
         "type": "File",
         "item": "",
-        "glob": ["index*/rank1.sdf"]
+        "glob": ["_filled_mask.json"]
       },
-      "all_docked_small_molecules": {
+      "embedded_protein_sequence": {
         "type": "Array",
         "item": "File",
-        "glob": ["index*/rank*_confidence-*.sdf"]
+        "glob": ["_embedding.csv"]
       },
-      "protein": {
+      "protein_sequence_conditional_probability": {
         "type": "File",
         "item": "",
-        "glob": ["*.pdb"]
+        "glob": ["_conditional_probability_matrix.csv"]
       }
     }
 }
