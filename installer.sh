@@ -35,16 +35,27 @@ login_ecr() {
     fi
 }
 
-manage_ecr_repositories() {
-    # 1) Check the public ECR for the available repositories
+# Function to list the available repositories in the public ECR
+list_ecr_repositories() {
     ecr_repositories=$(aws ecr-public describe-repositories --query 'repositories[].repositoryName' --output text)
-    echo "ECR Public repositories: $ecr_repositories"
+    echo "$ecr_repositories"
+}
 
-    # 2) Check the available directories for Dockerfiles and list all LABEL container=XYZ
+# Function to list the local Docker images based on the Dockerfiles
+list_local_repositories() {
     dockerfiles_with_label=$(grep -r "LABEL container=" . --include="Dockerfile" | awk -F'[=:]' '{print $3}')
+    echo "$dockerfiles_with_label"
+}
+
+# Function to manage the ECR repositories
+manage_ecr_repositories() {
+    # Get the list of ECR repositories and local images
+    ecr_repositories=$(list_ecr_repositories)
+    echo "ECR Public repositories: $ecr_repositories"
+    dockerfiles_with_label=$(list_local_repositories)
     echo "Dockerfiles found: $dockerfiles_with_label"
 
-    # 3) Create a new repository called XYZ if the repository does not yet exist in the public ECR
+    # Create a new repository called XYZ if the repository does not yet exist in the public ECR
     for label in $dockerfiles_with_label; do
         repository_name=$(echo "$label" | tr -d '[:space:]"') # Remove whitespace and quotes
         if [[ ! $ecr_repositories =~ $repository_name ]]; then
@@ -55,6 +66,7 @@ manage_ecr_repositories() {
         fi
     done
 }
+
 
 build_and_push_container() {
     local container_label="$1"
